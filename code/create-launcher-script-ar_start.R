@@ -1,3 +1,5 @@
+library(tidyverse)
+
 base_url <- "asymptomatic"
 if(grepl('spencerfox', Sys.info()['user'])) setwd(file.path("~", "projects", base_url))
 if(grepl('vagrant', Sys.info()['user'])) setwd( file.path("/vagrant", base_url) )
