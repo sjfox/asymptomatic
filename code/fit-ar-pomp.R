@@ -95,7 +95,7 @@ save_file_path <- with(as.list(data_for_fitting$parms),{
 
 # Run the fitting procedure -----------------------------------------------
 ## Setup the model
-if(fitting_nyc){
+if(city == "nyc" | city == "utah"){
   data_for_fitting$data %>%
     pomp(times="day", 
          t0 = 0,
@@ -124,7 +124,7 @@ if(fitting_nyc){
       cooling.fraction.50=0.5
     )) -> mf2
   
-} else {
+} else {#if(city == "austin") {
   data_for_fitting$data %>% 
     pomp(times="day", 
          t0 = 0,
@@ -150,7 +150,7 @@ if(fitting_nyc){
       rw.sd=rw.sd(logbeta_0=0.1, logbeta_stdev=0.05,  mu=0.02),
       cooling.fraction.50=0.5
     )) -> mf2
-}
+} 
 
 get_mle <- function(mf_mod, n_reps){
   replicate(n_reps, mf_mod %>% pfilter() %>% logLik()) %>% 
