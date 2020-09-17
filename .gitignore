@@ -1,0 +1,17 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rda
+.RSession
+data/*baselined.csv
+
+### Add SafeGraph final-metrics files due to large file size.
+data/health_visits*.csv
+data/ltc_visits.csv
+data/sd-metrics*.csv
+data/visits*.csv
+
+### Add TACC log files to gitignore.
+logs/*.out
+log/*.err
