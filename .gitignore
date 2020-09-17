@@ -4,6 +4,7 @@
 .Ruserdata
 .Rda
 .RSession
+.DS_Store
 data/*baselined.csv
 
 ### Add SafeGraph final-metrics files due to large file size.
