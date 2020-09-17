@@ -2,7 +2,7 @@
 ## Processing Hospitalization Data
 ###########################################
 
-get_hospitalization_data <- function(){
+get_hospitalization_data <- function(city){
   require(tidyverse)
   require(lubridate)
   
