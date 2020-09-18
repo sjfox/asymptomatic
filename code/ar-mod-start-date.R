@@ -322,7 +322,7 @@ get_init_parms_ar_start <- function(city){
       logbeta_stdev = 0.21,
       started_0 = 0,
       r = 5,
-      ndata = 52
+      ndata = 113
     )
   }
 }

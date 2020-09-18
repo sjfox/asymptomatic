@@ -3,7 +3,9 @@ library(tidyverse)
 library(pomp)
 library(cowplot)
 theme_set(theme_cowplot())
+
 source("code/ar-mod-start-date.R")
+
 read_fitting_data <- function(file_path){
   # browser()
   test <- tryCatch({
@@ -34,19 +36,19 @@ studies <- tibble(study = c("18% (Diamond Princess)", "43% (Iceland)", "88% (Gre
                   asymp_frac = c("18%", "43%", "88%"),
                   tau = c(0.82, 0.57, 0.12),
                   omega = 0.67)
-pop_size <- tibble(city = c("austin", "nyc"), 
-                   population = c(2168317, 8398748),
-                   best_fit_days_back = c(20, 28),
-                   first_hosp_data = lubridate::ymd(c("2020-03-10", "2020-03-03")),
-                   mle_rho = c(0.0443, 0.0513))
+pop_size <- tibble(city = c("austin", "nyc", "utah"), 
+                   population = c(2168317, 8398748, 3205958),
+                   best_fit_days_back = c(20, 28, 20),
+                   first_hosp_data = lubridate::ymd(c("2020-03-10", "2020-03-03", "2020-03-07")),
+                   mle_rho = c(0.0443, 0.0513, .0412))
 
-rho_tbl <- tibble(city = rep(c("austin", "nyc"), each = 3),
-                  rho = c(0.0443, 0.0264, 0.0905, 0.0513, 0.0305, 0.105),
-                  rho_label = factor(rep(c("Mean", "Lowerbound", "Upperbound"), 2),
+rho_tbl <- tibble(city = rep(c("austin", "nyc", "utah"), each = 3),
+                  rho = c(0.0443, 0.0264, 0.0905, 0.0513, 0.0305, 0.105, 0.0412, 0.0245, 0.0841),
+                  rho_label = factor(rep(c("Mean", "Lowerbound", "Upperbound"), 3),
                                      levels = c("Lowerbound", "Mean", "Upperbound")))
 
 ## folder_with_fits <- "processed_data/2020-05-18-16_mif-fits/" ## This one is with nbinom and fixed AR process
-folder_with_fits <- "processed_data/2020-05-20-01_mif-fits/" ## Prior on sd of AR and nbinom dispersion fitting for NYC
+folder_with_fits <- "processed_data/2020-09-16-23_mif-fits/" ## Prior on sd of AR and nbinom dispersion fitting for NYC
 vec <- list.files(folder_with_fits, full.names = T)
 vec %>% length()
 
@@ -84,6 +86,11 @@ nyc_results <- tibble(immune_fraction = c(percent_positive, 0.215, 0.24),
   spread(label, immune_fraction) %>% mutate(city = "NYC")
 
 
+utah_results <- tibble(immune_fraction = c(0.022, 0.012, 0.034),
+                       label = c("imean", "imin", "imax")) %>% 
+  spread(label, immune_fraction) %>% mutate(city = "Utah")
+
+
 # Figure 1 version 1 ------------------------------------------------------
 rnot_df <- fit_results %>% 
   inner_join(studies) %>% 
@@ -95,7 +102,9 @@ rnot_df <- fit_results %>%
          rnot_lo = map2(exp(logbetat_lo), fitted_parms, calc_ar_rnot) %>% unlist(),
          rnot_hi = map2(exp(logbetat_hi), fitted_parms, calc_ar_rnot) %>% unlist()) %>% 
   filter(date >= first_hosp_data) %>% 
-  mutate(city = ifelse(city == "austin", "Austin", "NYC")) %>% 
+  mutate(city = case_when(city == "austin" ~ "Austin", 
+                          city == "nyc"~"NYC",
+                          city == "utah" ~ "Utah")) %>% 
   mutate(rnot_mean = rnot_mean*S_mean/population,
          rnot_hi = rnot_hi*S_mean/population,
          rnot_lo = rnot_lo*S_mean/population)
@@ -108,7 +117,9 @@ nyc_compare <- fit_results %>%
          immune_mean = 1 - S_mean/population,
          immune_lo = 1 - S_hi/population,
          immune_sd = S_sd/population) %>% 
-  mutate(city = ifelse(city == "austin", "Austin", "NYC"),
+  mutate(city = case_when(city == "austin" ~ "Austin", 
+                          city == "nyc"~"NYC",
+                          city == "utah" ~ "Utah"),
          immune_sd = ifelse(immune_sd < 0.0001, 0.0001, immune_sd)) %>% 
   # filter(immune_hi - immune_lo < 0.05 | tau<0.05) %>% 
   mutate(asymp_frac = 1-tau)
@@ -116,8 +127,10 @@ nyc_compare <- fit_results %>%
 nyc_asymp <- nyc_compare %>% 
   select(city, tau, rho, omega, immune_lo, immune_hi, immune_mean) %>% 
   filter(city == "NYC") %>% 
-  filter((immune_lo <= nyc_results$imin & immune_hi >= nyc_results$imin) | 
-           (immune_lo <= nyc_results$imax & immune_hi >= nyc_results$imax))  %>% 
+  filter((immune_lo <= nyc_results$imin & immune_hi >= nyc_results$imin) |
+           (immune_lo <= nyc_results$imax & immune_hi >= nyc_results$imax) |
+           (immune_lo >= nyc_results$imin & immune_hi <= nyc_results$imax)
+  )  %>% 
   mutate(immune_diff = abs(immune_mean - percent_positive)) %>% 
   group_by(rho) %>% 
   summarize(asymp_min = 1 - max(tau),
@@ -167,7 +180,7 @@ fig1_immunity <- immune_data %>%
   ggplot(aes(x = 1-tau, ymin = lower, ymax = upper,
              fill = key)) +
   geom_ribbon() +
-  facet_wrap(~city, ncol = 1, scales = "free_x") +
+  facet_wrap(~city, ncol = 1, scales = "free_y") +
   geom_rect(data = nyc_results %>% 
               mutate(city = factor(city, levels = c("Austin", "NYC"))), aes(xmin = -Inf, 
                                                                             xmax = Inf, 
@@ -223,6 +236,151 @@ save_plot("figures/asymp-fig1B.png", fig1_immunity, base_height = 6, base_asp = 
 
 
 
+# Look at Utah data -------------------------------------------------------
+cdc_utah <- tibble(immune_fraction = c(0.011, 0.006, 0.021),
+                       label = c("imean", "imin", "imax")) %>% 
+  spread(label, immune_fraction) %>% mutate(city = "Utah")
+
+
+utah_compare <- fit_results %>% 
+  # filter(omega == 0.67) %>% 
+  left_join(pop_size, by = "city") %>% 
+  inner_join(rho_tbl) %>% 
+  mutate(immune_hi = 1 - S_lo/population,
+         immune_mean = 1 - S_mean/population,
+         immune_lo = 1 - S_hi/population,
+         immune_sd = S_sd/population) %>% 
+  mutate(#city = ifelse(city == "austin", "Austin", "NYC"),
+         immune_sd = ifelse(immune_sd < 0.0001, 0.0001, immune_sd)) %>%
+  # filter(immune_hi - immune_lo < 0.05 | tau<0.05) %>% 
+  mutate(asymp_frac = 1-tau)
+
+utah_compare %>% 
+  select(city, tau, rho, omega, immune_lo, immune_hi, immune_mean) %>% 
+  filter(city == "utah") %>% 
+  filter((immune_lo <= cdc_utah$imin & immune_hi >= cdc_utah$imin) |
+           (immune_lo <= cdc_utah$imax & immune_hi >= cdc_utah$imax) |
+           (immune_lo >= cdc_utah$imin & immune_hi <= cdc_utah$imax)
+  )  %>%
+  ggplot(aes(1-tau, immune_mean, color = rho))   + 
+  annotate(geom = "rect", xmin = -Inf, xmax = Inf, ymin = cdc_utah$imin, ymax = cdc_utah$imax, inherit.aes=FALSE, alpha = .3) +
+  geom_point() +
+  geom_errorbar(aes(ymin = immune_lo, ymax = immune_hi)) 
+  
+utah_compare %>% 
+  select(city, tau, rho, omega, immune_lo, immune_hi, immune_mean) %>% 
+  filter(city == "utah") %>% 
+  filter((immune_lo <= cdc_utah$imin & immune_hi >= cdc_utah$imin) |
+           (immune_lo <= cdc_utah$imax & immune_hi >= cdc_utah$imax) |
+           (immune_lo >= cdc_utah$imin & immune_hi <= cdc_utah$imax)
+  )  %>%
+  mutate(immune_diff = abs(immune_mean - cdc_utah$imean)) %>%
+  group_by(rho) %>% 
+  summarize(asymp_min = 1 - max(tau),
+            asymp_max = 1 - min(tau),
+            asymp_median = 1 - median(tau),
+            most_sim_asymp = 1 - tau[which.min(immune_diff)])
+
+
+
+
+# # Compare with CDC study: 
+# nyc_results
+# cdc_nyc <- tibble(imax = .089,
+#                   imin = .05,
+#                   imean = .069)
+# 
+# nyc_dates <- c("2020-03-16", "2020-03-24", "2020-03-28")
+# nyc_immune_cdc <- fit_results %>% 
+#   filter(city == "nyc") %>% 
+#   select(tau, rho, omega) %>% 
+#   bind_cols(fit_results %>% 
+#               filter(city == "nyc") %>% 
+#               pull(full_df) %>% 
+#               bind_rows() %>% 
+#               filter(date %in% lubridate::ymd(nyc_dates)) %>% 
+#               mutate(immune_hi = 1 - S_lo/8398748,
+#                      immune_mean = 1 - S_mean/8398748,
+#                      immune_lo = 1 - S_hi/8398748,
+#                      immune_sd = S_sd/8398748) %>% 
+#               mutate(var = rep(seq(1:(n()/3)), each = 3)) %>% 
+#               nest(data = c(date, hospitalized, new_admits, new_discharges, zt, day, logbetat_mean, 
+#                      logbetat_sd, logbetat_lo, logbetat_hi, H_mean, H_sd, H_lo, 
+#                      H_hi, S_mean, S_sd, S_lo, S_hi, NI_mean, NI_sd, NI_lo, NI_hi, 
+#                      IA_mean, IA_sd, IA_lo, IA_hi, IY_mean, IY_sd, IY_lo, IY_hi, 
+#                      NH_mean, NH_sd, NH_lo, NH_hi, LH_mean, LH_sd, LH_lo, LH_hi, 
+#                      D_mean, D_sd, D_lo, D_hi, R_mean, R_sd, R_lo, R_hi, immune_hi, 
+#                      immune_mean, immune_lo, immune_sd))
+#               ) %>% 
+#   unnest(data) %>% 
+#   select(date, tau, rho, omega, immune_lo, immune_hi, immune_mean) 
+#   
+# nyc_immune_cdc %>% 
+#   ggplot(aes(tau, immune_mean, color = rho))   + 
+#   annotate("rect",xmin = 0, xmax = 1, ymin = cdc_nyc$imin, ymax = cdc_nyc$imax, alpha = .2) +
+#   geom_point() +
+#   geom_errorbar(aes(ymin = immune_lo, ymax = immune_hi)) +
+#   facet_wrap(~date, scales = "free")
+# 
+# 
+# nyc_immune_cdc %>% 
+#   filter((immune_lo <= cdc_nyc$imin & immune_hi >= cdc_nyc$imin) |
+#            (immune_lo <= cdc_nyc$imax & immune_hi >= cdc_nyc$imax) |
+#            (immune_lo >= cdc_nyc$imin & immune_hi <= cdc_nyc$imax)
+#            )  %>%
+#   mutate(immune_diff = abs(immune_mean - cdc_nyc$imean)) %>%
+#   group_by(date, rho) %>% 
+#   summarize(asymp_min = 1 - max(tau),
+#             asymp_max = 1 - min(tau),
+#             asymp_median = 1 - median(tau),
+#             most_sim_asymp = 1 - tau[which.min(immune_diff)])
+
+## Plot for Utah
+
+cdc_utah <- utah_results
+utah_dates <- c("2020-04-13", "2020-04-21", "2020-04-27")
+utah_immune_cdc <- fit_results %>% 
+  filter(city == "utah") %>% 
+  select(tau, rho, omega) %>% 
+  bind_cols(fit_results %>% 
+              filter(city == "utah") %>% 
+              pull(full_df) %>% 
+              bind_rows() %>% 
+              filter(date %in% lubridate::ymd(utah_dates)) %>% 
+              mutate(immune_hi = 1 - S_lo/3205958,
+                     immune_mean = 1 - S_mean/3205958,
+                     immune_lo = 1 - S_hi/3205958,
+                     immune_sd = S_sd/3205958) %>% 
+              mutate(var = rep(seq(1:(n()/3)), each = 3)) %>% 
+              nest(data = c(date, hospitalized, new_admits, new_discharges, zt, day, logbetat_mean, 
+                            logbetat_sd, logbetat_lo, logbetat_hi, H_mean, H_sd, H_lo, 
+                            H_hi, S_mean, S_sd, S_lo, S_hi, NI_mean, NI_sd, NI_lo, NI_hi, 
+                            IA_mean, IA_sd, IA_lo, IA_hi, IY_mean, IY_sd, IY_lo, IY_hi, 
+                            NH_mean, NH_sd, NH_lo, NH_hi, LH_mean, LH_sd, LH_lo, LH_hi, 
+                            D_mean, D_sd, D_lo, D_hi, R_mean, R_sd, R_lo, R_hi, immune_hi, 
+                            immune_mean, immune_lo, immune_sd))
+  ) %>% 
+  unnest(data) %>% 
+  select(date, tau, rho, omega, immune_lo, immune_hi, immune_mean) 
+
+utah_immune_cdc %>% 
+  ggplot(aes(tau, immune_mean, color = rho))   + 
+  annotate("rect",xmin = 0, xmax = 1, ymin = cdc_utah$imin, ymax = cdc_utah$imax, alpha = .2) +
+  geom_point() +
+  geom_errorbar(aes(ymin = immune_lo, ymax = immune_hi)) +
+  facet_wrap(~date, scales = "free")
+
+utah_immune_cdc %>% 
+  filter((immune_lo <= cdc_utah$imin & immune_hi >= cdc_utah$imin) |
+           (immune_lo <= cdc_utah$imax & immune_hi >= cdc_utah$imax) |
+           (immune_lo >= cdc_utah$imin & immune_hi <= cdc_utah$imax)
+  )  %>%
+  mutate(immune_diff = abs(immune_mean - cdc_utah$imean)) %>%
+  group_by(date, rho) %>% 
+  summarize(asymp_min = 1 - max(tau),
+            asymp_max = 1 - min(tau),
+            asymp_median = 1 - median(tau),
+            most_sim_asymp = 1 - tau[which.min(immune_diff)])
 
 # Figure S1 ---------------------------------------------------------------
 rnot_df <- fit_results %>% 
