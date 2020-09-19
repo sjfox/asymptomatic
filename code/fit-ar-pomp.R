@@ -59,7 +59,7 @@ sapply(c("code/ar-mod-start-date.R",
 ## Prepares for city specification
 
 days_back <- case_when(city == "austin" ~ 23,
-                       city == "nyc" ~ 42,
+                       city == "nyc" ~ 48,
                        city == "utah" ~ 23)
 
 ## Gets raw data and initial parameters

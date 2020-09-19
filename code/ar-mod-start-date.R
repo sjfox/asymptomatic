@@ -266,7 +266,8 @@ get_init_parms_ar_start <- function(city){
       logbeta_stdev = 0.21,
       r = 5,
       started_0 = 0,
-      ndata = 56
+      # ndata = 56
+      ndata = 124
     )
   } else if(city == "austin") {
     c(omega = 0.67, ## 0-1 percent of beta that asymptomatic individuals transmit
@@ -322,7 +323,7 @@ get_init_parms_ar_start <- function(city){
       logbeta_stdev = 0.21,
       started_0 = 0,
       r = 5,
-      ndata = 113
+      ndata = 117
     )
   }
 }

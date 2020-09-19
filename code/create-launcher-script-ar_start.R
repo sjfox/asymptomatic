@@ -10,7 +10,8 @@ if(grepl('frontera', Sys.info()['nodename']))  setwd(file.path('/home1/02958/sjf
 start_days = 0
 taus =  as.numeric(sprintf("%.2f",seq(0.01, 1, by=.01)))
 omegas = c(0.29, 0.67, 1.42)
-cities = c("austin", "nyc", "utah")
+# cities = c("austin", "nyc", "utah")
+cities = c("nyc", "utah")
 nyc_hosp_rates <- c(0.0513, 0.0305, 0.105)
 austin_hosp_rates <- c(0.0443, 0.0264, 0.0905)
 utah_hosp_rates <- c(0.0412, 0.0245, 0.0841)
