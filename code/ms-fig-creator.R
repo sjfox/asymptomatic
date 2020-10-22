@@ -376,13 +376,13 @@ fig1_immunity <- immune_data %>%
   theme(strip.background = element_rect(fill = NA), legend.position = "bottom") +
   annotate("text", x = 0.01, y = 0.61, label = "Herd immunity threshold", hjust = 0, vjust = 0) +
   geom_text(data = tibble(city_label = factor(nyc_date_label, levels = factor_date_label)),
-            x = 0.01, y = nyc_results$imax+.01, 
+            x = 0.01, y = nyc_results_rd2$imax+.01, 
             label = "Seroprevalence estimate",
             hjust = 0, 
             vjust = 0, 
             color = "steelblue4", inherit.aes=FALSE) +
   geom_text(data = tibble(city_label = factor(utah_date_label, levels = factor_date_label)),
-            x = 0.01, y = utah_results_rd4$imax+.01, 
+            x = 0.01, y = utah_results_rd2$imax+.01, 
             label = "Seroprevalence estimate",
             hjust = 0, 
             vjust = 0, 
@@ -1047,6 +1047,22 @@ read_csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-coun
             deaths = sum(deaths)) %>%
   filter(date < "2020-07-01") %>% tail()
 (22364/pop_size$population[3]) / c(.027, .012, .063)
+
+
+
+# Look at the fits --------------------------------------------------------
+
+accepted_results <- fit_results %>% 
+  filter((mle > -660 & city == "nyc") | (mle > -335 & city == "utah"))
+accepted_results %>%   
+  ggplot(aes(tau, mle, color = as.factor(rho))) + 
+    geom_point() + 
+    facet_wrap(~city, scales = "free_y")
+
+accepted_results %>% 
+  group_by(city, rho) %>% 
+  summarize(1-min(tau), 1 - max(tau))
+
 ## Austin Reporting rate
 # austin_msa <- tibble(fips = c('48021', '48055', '48209', '48453', '48491'))
 # read_csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv') %>% 
