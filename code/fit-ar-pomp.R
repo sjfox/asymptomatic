@@ -70,7 +70,7 @@ init_parms <- get_init_parms_ar_start(city)
 init_parms <- replace_parms(c("tau" = tau, 
                               "omega" = omega,
                               "day_to_start" = start_day,
-                              "rho" = (rho)/(tau)), init_parms)
+                              "rho" = as.numeric(rho)/as.numeric(tau)), init_parms)
 
 ## Gets the data setup for fitting (adds 50 zeroes before data)
 data_for_fitting <- get_data_and_parms(days_back, raw_data, init_parms)
